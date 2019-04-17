@@ -1,0 +1,48 @@
+const asyncChunks = require('async-chunks');
+const ethereumjs = require('merkle-patricia-tree');
+const ethUtil = require('ethereumjs-util');
+const rainblock = require('@rainblock/merkle-patricia-tree');
+const utils = require('./utils');
+const wait = require('wait-for-stuff');
+
+const batchOptions = [1, 10, 100, 1000]
+
+const rmain = (state, batchOps, batchSize) => {
+  for (let i = 0; i < batchOps.length; i += batchSize) {
+    state.batch(batchOps.slice(i).slice(0, batchSize));
+  }
+};
+
+const emain = (state, batchOps, batchSize) => {
+  let flag = 0;
+  for (let i = 0; i < batchOps.length; i += batchSize) {
+    state.batch(batchOps.slice(i).slice(0, batchSize), () => {flag = i});
+  }
+  wait.for.predicate(() => (flag === batchOps.length - 1));
+}
+
+if (process.argv.length !== 3) {
+  console.log("USAGE: node filename.js blockNum");
+  process.exit(1);
+}
+
+const blockNum = parseInt(process.argv[2], 10);
+const block = blockNum.toString();
+const suite = utils.newBenchmark();
+const batchOps = utils.readFixedFromDump(blockNum);
+const rstate = new rainblock.MerklePatriciaTree();
+const estate = new ethereumjs();
+const size = ' ' + batchOps.length;
+
+
+//for (let batchSize of batchOptions) {
+// const batch = ' ' + batchSize.toString();
+
+//  utils.addTest(suite, 'RBC ' + block + batch + size,
+//    rmain, null, rstate, batchOps, batchSize);
+//}
+
+utils.addTest(suite, 'ETH ' + block +  ' 1 ' + size,
+  emain, null, estate, batchOps, 1);
+
+suite.run();
